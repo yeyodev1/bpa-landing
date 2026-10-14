@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import type { BuyerForm, Product } from '@/types/product'
-import { createOrder, errorMessage } from '@/services/api'
+import { createOrder, errorMessage, isServiceDown } from '@/services/api'
 import { money, periodLabel } from '@/composables/useMoney'
 import { loadPayphoneWidget, renderPayphoneBox } from '@/composables/usePayphone'
 
@@ -16,6 +16,15 @@ const submitting = ref(false)
 const formError = ref('')
 const gatewayOpen = ref(false)
 const gatewayError = ref('')
+const paymentOffline = ref(false)
+
+const whatsappUrl = computed(() => {
+  const text =
+    `Hola, quiero comprar ${props.product.name}: plan ${plan.value.name}, ${seats.value} ` +
+    `profesional${seats.value > 1 ? 'es' : ''}, total ${money(totalCents.value)}. ` +
+    `Soy ${buyer.name.trim()} (${buyer.identification.trim()}), ${buyer.email.trim()}, ${buyer.city.trim()}.`
+  return `https://wa.me/${props.product.whatsapp}?text=${encodeURIComponent(text)}`
+})
 
 const plan = computed(() => props.product.plans.find((item) => item.id === planId.value)!)
 const subtotalCents = computed(() => plan.value.priceCents * seats.value)
@@ -67,7 +76,10 @@ async function pay() {
     await nextTick()
     renderPayphoneBox(payphone, 'payphone-box', props.product.brand.primaryColor)
   } catch (error) {
-    if (gatewayOpen.value) gatewayError.value = errorMessage(error)
+    if (isServiceDown(error)) {
+      closeGateway()
+      paymentOffline.value = true
+    } else if (gatewayOpen.value) gatewayError.value = errorMessage(error)
     else formError.value = errorMessage(error)
   } finally {
     submitting.value = false
@@ -190,7 +202,14 @@ function closeGateway() {
 
           <p v-if="formError" class="error" role="alert">{{ formError }}</p>
 
-          <button type="submit" class="btn btn-accent pay" :disabled="submitting">
+          <div v-if="paymentOffline" class="offline" role="status">
+            <p>Termina tu compra con un asesor por WhatsApp. Ya preparamos el mensaje con tu plan y tus datos.</p>
+            <a :href="whatsappUrl" target="_blank" rel="noopener" class="btn btn-accent pay">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Comprar por WhatsApp
+            </a>
+          </div>
+
+          <button v-else type="submit" class="btn btn-accent pay" :disabled="submitting">
             <i v-if="submitting" class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
             <i v-else class="fa-solid fa-lock" aria-hidden="true"></i>
             {{ submitting ? 'Preparando pago…' : `Pagar ${money(totalCents)}` }}
@@ -225,6 +244,18 @@ function closeGateway() {
 </template>
 
 <style scoped lang="scss">
+.offline {
+  display: grid;
+  gap: 12px;
+  p {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+  a {
+    text-decoration: none;
+  }
+}
+
 .checkout {
   background: #fff;
   scroll-margin-top: 60px;
