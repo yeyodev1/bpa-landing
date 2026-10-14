@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import type { Product } from '@/types/product'
 import { errorMessage, fetchProduct } from '@/services/api'
+import { fallbackProducts } from '@/data/fallbackProduct'
 import HeroSection from '@/components/HeroSection.vue'
 import FeatureGrid from '@/components/FeatureGrid.vue'
 import GallerySection from '@/components/GallerySection.vue'
@@ -31,7 +32,10 @@ onMounted(async () => {
     product.value = await fetchProduct(slug)
     document.title = `${product.value.name} | Compra tu licencia`
   } catch (error) {
-    loadError.value = errorMessage(error)
+    // Si la API no responde, se muestra el contenido empaquetado en vez de un error.
+    product.value = fallbackProducts[slug] || null
+    if (product.value) document.title = `${product.value.name} | Compra tu licencia`
+    else loadError.value = errorMessage(error)
   }
 })
 </script>
