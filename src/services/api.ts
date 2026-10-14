@@ -11,6 +11,12 @@ export function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Ocurrió un error inesperado.'
 }
 
+// Sin respuesta o error del servidor: el cobro en línea no está disponible y se ofrece WhatsApp.
+export function isServiceDown(error: unknown) {
+  if (!axios.isAxiosError(error)) return true
+  return !error.response || error.response.status >= 500
+}
+
 export async function fetchProduct(slug: string) {
   const { data } = await http.get<{ product: Product }>(`/products/${encodeURIComponent(slug)}`)
   return data.product
