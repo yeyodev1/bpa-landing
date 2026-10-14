@@ -12,8 +12,10 @@ import FaqSection from '@/components/FaqSection.vue'
 import PaymentResult from '@/components/PaymentResult.vue'
 
 const slug = import.meta.env.VITE_PRODUCT_SLUG || 'smartmedic'
-const product = ref<Product | null>(null)
+// Se pinta al instante con el contenido empaquetado y se reemplaza cuando responde la API.
+const product = ref<Product | null>(fallbackProducts[slug] || null)
 const loadError = ref('')
+if (product.value) document.title = `${product.value.name} | Compra tu licencia`
 
 // Payphone vuelve a la misma URL con ?id=...&clientTransactionId=...
 const params = new URLSearchParams(window.location.search)
@@ -32,10 +34,7 @@ onMounted(async () => {
     product.value = await fetchProduct(slug)
     document.title = `${product.value.name} | Compra tu licencia`
   } catch (error) {
-    // Si la API no responde, se muestra el contenido empaquetado en vez de un error.
-    product.value = fallbackProducts[slug] || null
-    if (product.value) document.title = `${product.value.name} | Compra tu licencia`
-    else loadError.value = errorMessage(error)
+    if (!product.value) loadError.value = errorMessage(error)
   }
 })
 </script>
