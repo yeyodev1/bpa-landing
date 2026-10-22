@@ -17,7 +17,7 @@ const paid = computed(() => order.value?.status === 'paid')
 
 const whatsappUrl = computed(() => {
   if (!order.value) return ''
-  const text = `Hola, acabo de comprar ${order.value.productName} (${order.value.plan.name}, ${order.value.seats} profesional(es)). Mi referencia es ${order.value.reference}. Quiero activar mi cuenta.`
+  const text = `Hola, acabo de comprar ${order.value.productName} (${order.value.plan.tierName}, ${order.value.plan.name}, ${order.value.seats} profesional(es)). Mi referencia es ${order.value.reference}. Quiero activar mi cuenta.`
   return `https://wa.me/${props.product.whatsapp}?text=${encodeURIComponent(text)}`
 })
 
@@ -70,7 +70,7 @@ function restart() {
         <p>Tu pago fue aprobado. Escríbenos por WhatsApp para activar tu cuenta y agendar tu capacitación.</p>
         <dl>
           <div><dt>Referencia</dt><dd>{{ order.reference }}</dd></div>
-          <div><dt>Plan</dt><dd>{{ order.plan.name }} · {{ order.seats }} profesional(es)</dd></div>
+          <div><dt>Plan</dt><dd>{{ order.plan.tierName }} ({{ order.plan.name }}) · {{ order.seats }} profesional(es)</dd></div>
           <div><dt>Total pagado</dt><dd>{{ money(order.totalCents) }}</dd></div>
         </dl>
         <a :href="whatsappUrl" target="_blank" rel="noopener" class="btn btn-accent">

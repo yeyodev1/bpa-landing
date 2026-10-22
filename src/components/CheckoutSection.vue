@@ -20,20 +20,54 @@ const paymentOffline = ref(false)
 
 const whatsappUrl = computed(() => {
   const text =
-    `Hola, quiero comprar ${props.product.name}: plan ${plan.value.name}, ${seats.value} ` +
+    `Hola, quiero comprar ${props.product.name}: ${pricing.value.tierName} (${plan.value.name}), ${seats.value} ` +
     `profesional${seats.value > 1 ? 'es' : ''}, total ${money(totalCents.value)}. ` +
     `Soy ${buyer.name.trim()} (${buyer.identification.trim()}), ${buyer.email.trim()}, ${buyer.city.trim()}.`
   return `https://wa.me/${props.product.whatsapp}?text=${encodeURIComponent(text)}`
 })
 
 const plan = computed(() => props.product.plans.find((item) => item.id === planId.value)!)
-const subtotalCents = computed(() => plan.value.priceCents * seats.value)
+
+// Mismo cálculo que el backend (priceForSeats): nivel por número de profesionales
+// y, pasado el último nivel, precio por usuario.
+function priceFor(period: string, seatCount: number) {
+  const key = period === 'year' ? 'year' : 'month'
+  const tier = props.product.tiers.find((item) => seatCount >= item.minSeats && seatCount <= item.maxSeats)
+  if (tier) return { tierId: tier.id, tierName: tier.name, unitPriceCents: tier.priceCents[key], subtotalCents: tier.priceCents[key], perSeat: false }
+  const overflow = props.product.overflow
+  if (overflow && seatCount >= overflow.fromSeats) {
+    const unit = overflow.perSeatCents[key]
+    return { tierId: 'por-usuario', tierName: `${seatCount} usuarios`, unitPriceCents: unit, subtotalCents: unit * seatCount, perSeat: true }
+  }
+  const last = props.product.tiers[props.product.tiers.length - 1]!
+  return { tierId: last.id, tierName: last.name, unitPriceCents: last.priceCents[key], subtotalCents: last.priceCents[key], perSeat: false }
+}
+
+const pricing = computed(() => priceFor(plan.value.period, seats.value))
+const subtotalCents = computed(() => pricing.value.subtotalCents)
 const taxCents = computed(() => Math.round(subtotalCents.value * props.product.taxRate))
 const totalCents = computed(() => subtotalCents.value + taxCents.value)
 const taxPercent = computed(() => Math.round(props.product.taxRate * 100))
 
-function monthlyEquivalent(priceCents: number, period: string) {
-  return period === 'year' ? money(Math.round(priceCents / 12)) : ''
+function periodPrice(period: string) {
+  return priceFor(period, seats.value).subtotalCents
+}
+
+// Ahorro del plan anual frente a pagar 12 meses del mensual, para los mismos profesionales.
+function yearlySavings(period: string) {
+  if (period !== 'year') return ''
+  const monthly = priceFor('month', seats.value).subtotalCents * 12
+  const yearly = priceFor('year', seats.value).subtotalCents
+  if (yearly >= monthly) return ''
+  return `Ahorras ${money(monthly - yearly)} al año`
+}
+
+function seatRange(tier: { minSeats: number; maxSeats: number }) {
+  return tier.minSeats === tier.maxSeats ? `${tier.minSeats} usuario` : `${tier.minSeats} a ${tier.maxSeats} usuarios`
+}
+
+function selectTier(minSeats: number) {
+  seats.value = minSeats
 }
 
 function changeSeats(delta: number) {
@@ -99,35 +133,13 @@ function closeGateway() {
       <div class="section-head">
         <span class="eyebrow">Compra tu licencia</span>
         <h2>Elige tu plan y empieza hoy</h2>
-        <p>Precio por profesional. Activamos tu cuenta y te capacitamos apenas se confirme el pago.</p>
+        <p>El plan depende de cuántos profesionales usarán el sistema. Activamos tu cuenta y te capacitamos apenas se confirme el pago.</p>
       </div>
 
       <form class="layout" novalidate @submit.prevent="pay">
         <div class="config">
-          <fieldset class="plans">
-            <legend>1. Plan</legend>
-            <label
-              v-for="item in product.plans"
-              :key="item.id"
-              class="plan"
-              :class="{ active: item.id === planId }"
-            >
-              <input v-model="planId" type="radio" name="plan" :value="item.id" />
-              <span v-if="item.badge" class="badge">{{ item.badge }}</span>
-              <span class="plan-name">{{ item.name }}</span>
-              <span class="plan-price">
-                {{ money(item.priceCents) }}
-                <small>+ IVA / {{ periodLabel[item.period] }}</small>
-              </span>
-              <span v-if="monthlyEquivalent(item.priceCents, item.period)" class="plan-eq">
-                Equivale a {{ monthlyEquivalent(item.priceCents, item.period) }} al mes
-              </span>
-              <span v-if="item.note" class="plan-note">{{ item.note }}</span>
-            </label>
-          </fieldset>
-
           <fieldset class="seats">
-            <legend>2. Profesionales</legend>
+            <legend>1. Profesionales</legend>
             <p>¿Cuántos médicos u odontólogos usarán {{ product.name }}?</p>
             <div class="stepper">
               <button type="button" aria-label="Quitar un profesional" :disabled="seats <= 1" @click="changeSeats(-1)">
@@ -138,6 +150,49 @@ function closeGateway() {
                 <i class="fa-solid fa-plus" aria-hidden="true"></i>
               </button>
             </div>
+
+            <div class="tiers" role="group" aria-label="Planes según profesionales">
+              <button
+                v-for="tier in product.tiers"
+                :key="tier.id"
+                type="button"
+                class="tier"
+                :class="{ active: tier.id === pricing.tierId }"
+                @click="selectTier(tier.minSeats)"
+              >
+                <span class="tier-name">{{ tier.name }}</span>
+                <span class="tier-range">{{ seatRange(tier) }}</span>
+                <span class="tier-price">
+                  {{ money(plan.period === 'year' ? tier.priceCents.year : tier.priceCents.month) }}
+                  <small>+ IVA / {{ periodLabel[plan.period] }}</small>
+                </span>
+              </button>
+            </div>
+            <p v-if="product.overflow" class="overflow-note" :class="{ active: pricing.perSeat }">
+              Más de {{ product.overflow.fromSeats - 1 }} usuarios:
+              {{ money(product.overflow.perSeatCents.month) }} por usuario al mes
+              o {{ money(product.overflow.perSeatCents.year) }} por usuario al año.
+            </p>
+          </fieldset>
+
+          <fieldset class="plans">
+            <legend>2. ¿Mensual o anual?</legend>
+            <label
+              v-for="item in product.plans"
+              :key="item.id"
+              class="plan"
+              :class="{ active: item.id === planId }"
+            >
+              <input v-model="planId" type="radio" name="plan" :value="item.id" />
+              <span v-if="item.badge" class="badge">{{ item.badge }}</span>
+              <span class="plan-name">{{ item.name }}</span>
+              <span class="plan-price">
+                {{ money(periodPrice(item.period)) }}
+                <small>+ IVA / {{ periodLabel[item.period] }}</small>
+              </span>
+              <span v-if="yearlySavings(item.period)" class="plan-eq">{{ yearlySavings(item.period) }}</span>
+              <span v-if="item.note" class="plan-note">{{ item.note }}</span>
+            </label>
           </fieldset>
 
           <fieldset class="buyer">
@@ -175,8 +230,13 @@ function closeGateway() {
           <h3>Resumen</h3>
           <dl>
             <div>
-              <dt>{{ product.name }} · {{ plan.name }}</dt>
-              <dd>{{ money(plan.priceCents) }} × {{ seats }}</dd>
+              <dt>{{ product.name }} · {{ pricing.tierName }} ({{ plan.name.toLowerCase().replace('plan ', '') }})</dt>
+              <dd v-if="pricing.perSeat">{{ money(pricing.unitPriceCents) }} × {{ seats }}</dd>
+              <dd v-else>{{ money(pricing.subtotalCents) }}</dd>
+            </div>
+            <div v-if="!pricing.perSeat">
+              <dt>Profesionales incluidos</dt>
+              <dd>{{ seats }}</dd>
             </div>
             <div>
               <dt>Subtotal</dt>
@@ -369,6 +429,66 @@ legend {
 
 .seats p {
   margin-bottom: 14px;
+}
+
+.tiers {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.tier {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  text-align: left;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease;
+
+  &.active {
+    border-color: var(--primary);
+    background: rgba(2, 112, 180, 0.05);
+  }
+
+  .tier-name {
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .tier-range {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .tier-price {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+
+    small {
+      display: block;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+  }
+}
+
+.overflow-note {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+
+  &.active {
+    color: var(--primary-dark);
+    font-weight: 600;
+  }
 }
 
 .stepper {
@@ -615,6 +735,7 @@ legend {
 
 @media (max-width: 560px) {
   .plans,
+  .tiers,
   .fields {
     grid-template-columns: 1fr;
   }

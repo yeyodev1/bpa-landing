@@ -2,10 +2,23 @@ export interface Plan {
   id: string
   name: string
   period: 'month' | 'year' | 'once'
-  priceCents: number
   note?: string
   badge?: string
   highlighted?: boolean
+}
+
+// Nivel de precio según el número de profesionales (flyer "Cuenta y Precios 2026").
+export interface Tier {
+  id: string
+  name: string
+  minSeats: number
+  maxSeats: number
+  priceCents: { month: number; year: number }
+}
+
+export interface Overflow {
+  fromSeats: number
+  perSeatCents: { month: number; year: number }
 }
 
 export interface Product {
@@ -19,6 +32,8 @@ export interface Product {
   gallery: { src: string; alt: string }[]
   support?: string
   plans: Plan[]
+  tiers: Tier[]
+  overflow?: Overflow | null
   taxRate: number
   maxSeats: number
   trustedBy: string[]
@@ -29,7 +44,7 @@ export interface Product {
 export interface PublicOrder {
   reference: string
   productName: string
-  plan: { id: string; name: string; period: string; unitPriceCents: number }
+  plan: { id: string; name: string; period: string; tierId: string; tierName: string; unitPriceCents: number }
   seats: number
   buyerName: string
   subtotalCents: number

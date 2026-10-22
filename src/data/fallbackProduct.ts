@@ -84,6 +84,7 @@ export const fallbackProducts: Record<string, Product> = {
     "Control de abonos y pagos",
     "Asesoría para tu firma electrónica",
     "Almacenamiento de 10 GB",
+    "Implementación y migración de tus datos",
     "Capacitación personalizada",
     "Soporte técnico",
     "Actualizaciones periódicas",
@@ -95,26 +96,49 @@ export const fallbackProducts: Record<string, Product> = {
   ],
   support:
     "Soporte presencial en Guayaquil y virtual en todo el país, de lunes a viernes de 9h30 a 17h30.",
+  // Precios oficiales del flyer "Cuenta y Precios 2026" (oct 2026).
   plans: [
     {
       id: "mensual",
       name: "Plan mensual",
       period: "month",
-      priceCents: 3000,
       note: "Pagas mes a mes, sin permanencia.",
     },
     {
       id: "anual",
       name: "Plan anual",
       period: "year",
-      priceCents: 36000,
-      note: "Un solo pago por todo el año.",
-      badge: "Más elegido",
+      note: "Un solo pago por todo el año, con descuento incluido.",
+      badge: "Ahorra hasta 5%",
       highlighted: true,
     },
   ],
+  tiers: [
+    {
+      id: "individual",
+      name: "Plan Individual",
+      minSeats: 1,
+      maxSeats: 1,
+      priceCents: { month: 2000, year: 23500 },
+    },
+    {
+      id: "consultorio",
+      name: "Plan Consultorio",
+      minSeats: 2,
+      maxSeats: 4,
+      priceCents: { month: 5000, year: 58800 },
+    },
+    {
+      id: "clinica",
+      name: "Plan Clínica",
+      minSeats: 5,
+      maxSeats: 10,
+      priceCents: { month: 8000, year: 91200 },
+    },
+  ],
+  overflow: { fromSeats: 11, perSeatCents: { month: 1000, year: 10800 } },
   taxRate: 0.15,
-  maxSeats: 20,
+  maxSeats: 30,
   trustedBy: ["PAX", "SEGUA Dental", "Orto Novus", "Smile", "Med Plus", "Vida Dental", "Doctorisy"],
   faqs: [
     {
@@ -125,7 +149,7 @@ export const fallbackProducts: Record<string, Product> = {
     {
       question: "¿El precio es por clínica o por profesional?",
       answer:
-        "Por profesional. Elige cuántos médicos u odontólogos usarán la plataforma; los asistentes se configuran dentro de tu cuenta.",
+        "Depende de cuántos profesionales usarán el sistema: Plan Individual (1 usuario), Plan Consultorio (2 a 4) y Plan Clínica (5 a 10). Para más de 10 usuarios el valor es de $10 por usuario al mes o $108 por usuario al año.",
     },
     {
       question: "¿Sirve para odontología?",

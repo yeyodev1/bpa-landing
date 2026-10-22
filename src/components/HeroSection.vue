@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Product } from '@/types/product'
-import { money, periodLabel } from '@/composables/useMoney'
+import { money } from '@/composables/useMoney'
 
 const props = defineProps<{ product: Product }>()
 
-const fromPlan = computed(() => [...props.product.plans].sort((a, b) => a.priceCents - b.priceCents)[0])
+const fromTier = computed(() => [...props.product.tiers].sort((a, b) => a.priceCents.month - b.priceCents.month)[0])
 
 // YouTube / Vimeo se incrustan; un .mp4 se reproduce nativo; sin URL se muestra el mockup.
 const video = computed(() => {
@@ -56,8 +56,8 @@ const video = computed(() => {
         <a href="#comprar" class="btn btn-accent">
           Compra tu licencia <i class="fa-solid fa-arrow-down" aria-hidden="true"></i>
         </a>
-        <p v-if="fromPlan" class="from">
-          Desde <b>{{ money(fromPlan.priceCents) }}</b> + IVA por profesional / {{ periodLabel[fromPlan.period] }}
+        <p v-if="fromTier" class="from">
+          Desde <b>{{ money(fromTier.priceCents.month) }}</b> + IVA al mes
         </p>
       </div>
 
